@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mouse Cookie Adventure</title>
+    <style>
+      /* Global layout styles for a bright, friendly look */
+      :root {
+        color-scheme: light;
+        font-family: "Fredoka", "Comic Sans MS", "Poppins", sans-serif;
+        --sky: linear-gradient(180deg, #ffe867 0%, #ffb7e9 100%);
+        --panel: #fff3d6;
+        --text: #5a2b15;
+        --accent: #ff8f32;
+        --success: #6bd06b;
+        --focus: #33aaff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: var(--sky);
+        color: var(--text);
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+          env(safe-area-inset-left);
+      }
+
+      .game-shell {
+        width: min(900px, 96vw);
+        background: #ffffffaa;
+        backdrop-filter: blur(6px);
+        border-radius: 28px;
+        padding: 16px;
+        box-shadow: 0 18px 32px #e38bd655;
+        display: grid;
+        gap: 14px;
+        grid-template-rows: auto 1fr auto;
+      }
+
+      .header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        background: var(--panel);
+        padding: 12px 18px;
+        border-radius: 20px;
+      }
+
+      .header-left {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: clamp(1.4rem, 4vw, 2rem);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .level-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: #ffe5ff;
+        font-size: clamp(0.9rem, 3.2vw, 1rem);
+        color: #6a2c7f;
+        font-weight: 600;
+        box-shadow: 0 4px 0 #e9c0ff;
+      }
+
+      .header button {
+        background: var(--accent);
+        border: none;
+        border-radius: 999px;
+        padding: 10px 20px;
+        font-size: 1rem;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 8px 0 #e17827;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      button {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .header button:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      .header button:active {
+        transform: translateY(3px);
+        box-shadow: 0 4px 0 #e17827;
+      }
+
+      .play-area {
+        position: relative;
+        background: var(--panel);
+        border-radius: 24px;
+        padding: clamp(18px, 4vw, 28px);
+        overflow: hidden;
+        transition: background 0.5s ease;
+      }
+
+      .play-area.level-kitchen {
+        background: linear-gradient(180deg, #fff6dc 0%, #ffd9aa 100%);
+      }
+
+      .play-area.level-picnic {
+        background: linear-gradient(180deg, #d9faff 0%, #9fead1 100%);
+      }
+
+      .play-area.level-art {
+        background: linear-gradient(180deg, #ffe9ff 0%, #d5c4ff 100%);
+      }
+
+      .play-area::after {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        border-radius: 22px;
+        border: 4px dashed #ffffff55;
+        pointer-events: none;
+      }
+
+      body.dragging {
+        cursor: grabbing;
+        user-select: none;
+      }
+
+      .mouse-area {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        height: 100%;
+        position: relative;
+      }
+
+      .mouse-emoji {
+        font-size: clamp(4rem, 20vw, 9rem);
+        filter: drop-shadow(0 8px 2px #e3a6c7);
+        transition: transform 0.3s ease;
+      }
+
+      .mouse-area::before {
+        content: "";
+        position: absolute;
+        width: clamp(140px, 42vw, 260px);
+        height: clamp(140px, 42vw, 260px);
+        border-radius: 50%;
+        background: radial-gradient(circle, #ffffff66 0%, #ffffff00 70%);
+        top: 52%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+
+      .play-area.drag-mode .mouse-area::before {
+        opacity: 1;
+        animation: pulseHover 1.6s infinite;
+      }
+
+      @keyframes pulseHover {
+        0%,
+        100% {
+          transform: translate(-50%, -50%) scale(0.9);
+          opacity: 0.6;
+        }
+        50% {
+          transform: translate(-50%, -50%) scale(1.05);
+          opacity: 1;
+        }
+      }
+
+      .mouse-emoji.wiggle {
+        animation: wiggle 0.6s ease-in-out infinite alternate;
+      }
+
+      @keyframes wiggle {
+        from {
+          transform: rotate(-6deg) scale(1.04);
+        }
+        to {
+          transform: rotate(6deg) scale(1.04);
+        }
+      }
+
+      .request-bubble {
+        background: white;
+        border-radius: 30px;
+        padding: 14px 24px;
+        font-size: clamp(1.2rem, 5vw, 1.6rem);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 8px 0 #ecd0ff;
+      }
+
+      .request-text {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .combo-trail {
+        display: none;
+        margin-top: 8px;
+        justify-content: center;
+        gap: 6px;
+      }
+
+      .combo-trail.active {
+        display: inline-flex;
+        flex-wrap: wrap;
+      }
+
+      .combo-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: clamp(38px, 10vw, 46px);
+        height: clamp(38px, 10vw, 46px);
+        border-radius: 16px;
+        background: #ffe6ff;
+        box-shadow: inset 0 -4px 0 #f0c8ff;
+        font-size: clamp(1.6rem, 6vw, 2.2rem);
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+
+      .combo-icon.done {
+        background: #d9ffe6;
+        box-shadow: inset 0 -4px 0 #9fe0b7;
+        opacity: 0.7;
+        transform: scale(0.9);
+      }
+
+      .combo-plus {
+        font-size: clamp(1.2rem, 4vw, 1.6rem);
+        color: #ff8f32;
+        align-self: center;
+      }
+
+      .level-hint {
+        margin-top: -4px;
+        padding: 6px 14px;
+        background: #ffffffdd;
+        border-radius: 999px;
+        font-size: clamp(0.95rem, 3.4vw, 1.1rem);
+        font-weight: 600;
+        color: #7652a8;
+        box-shadow: 0 6px 0 #d2c6ff;
+      }
+
+      .play-area.drag-mode .level-hint {
+        background: #dff7ff;
+        color: #0f6d94;
+        box-shadow: 0 6px 0 #9bd6f5;
+      }
+
+      .play-area.combo-mode .level-hint {
+        background: #ffe9ff;
+        color: #8932a5;
+        box-shadow: 0 6px 0 #e2b8ff;
+      }
+
+      .request-arrow {
+        font-size: clamp(1.6rem, 6vw, 2.4rem);
+        color: #ff8f32;
+      }
+
+      .request-emoji {
+        font-size: clamp(2rem, 8vw, 3rem);
+        animation: bounce 1.4s infinite ease-in-out;
+      }
+
+      .request-emoji.wiggle {
+        animation: wiggle 0.6s ease-in-out infinite alternate;
+      }
+
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-12px);
+        }
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .item-tray {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        padding-bottom: 6px;
+      }
+
+      .item-btn {
+        position: relative;
+        border: none;
+        background: white;
+        border-radius: 26px;
+        padding: 20px 12px;
+        font-size: clamp(2.3rem, 9vw, 3.3rem);
+        cursor: pointer;
+        box-shadow: 0 8px 0 #d9d0ff;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        isolation: isolate;
+        min-height: 112px;
+        touch-action: none;
+      }
+
+      .item-btn.dimmed {
+        opacity: 0.45;
+        box-shadow: 0 6px 0 #d0c6ff;
+      }
+
+      .item-btn.dimmed:hover,
+      .item-btn.dimmed:focus-visible {
+        transform: translateY(0);
+        box-shadow: 0 6px 0 #d0c6ff;
+      }
+
+      .item-btn.dimmed.highlight {
+        opacity: 1;
+        box-shadow: 0 14px 0 #c6bcff;
+      }
+
+      .item-btn .label {
+        display: block;
+        margin-top: 6px;
+        font-size: clamp(0.8rem, 3.5vw, 1rem);
+        color: #91653c;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      .item-btn:focus-visible {
+        outline: 5px solid var(--focus);
+      }
+
+      .item-btn:hover,
+      .item-btn:focus-visible {
+        transform: translateY(-6px);
+        box-shadow: 0 14px 0 #c6bcff;
+      }
+
+      .item-btn::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 26px;
+        background: radial-gradient(circle, transparent 40%, #ffdf87 120%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+      }
+
+      .item-btn.highlight::after {
+        opacity: 1;
+        animation: pulse 1s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.06);
+        }
+      }
+
+      .success-stars {
+        pointer-events: none;
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+      }
+
+      .drag-ghost {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: clamp(64px, 16vw, 86px);
+        height: clamp(64px, 16vw, 86px);
+        border-radius: 24px;
+        background: white;
+        box-shadow: 0 12px 24px #d999ff66;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(2.4rem, 9vw, 3.6rem);
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        transition: transform 0.1s ease;
+        z-index: 10;
+      }
+
+      .level-transition {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: #ffffffcc;
+        backdrop-filter: blur(4px);
+        z-index: 2;
+        pointer-events: none;
+      }
+
+      .level-transition.active {
+        display: flex;
+      }
+
+      .level-transition-card {
+        background: white;
+        border-radius: 24px;
+        padding: 22px 28px;
+        font-size: clamp(1.2rem, 5vw, 1.6rem);
+        font-weight: 600;
+        color: #5f2a66;
+        box-shadow: 0 14px 0 #e2c0f7;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .star {
+        position: absolute;
+        font-size: 2rem;
+        animation: sparkle 1s ease-out forwards;
+      }
+
+      @keyframes sparkle {
+        from {
+          opacity: 1;
+          transform: translate(var(--tx, 0), var(--ty, 0)) scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: translate(var(--tx, 0), calc(var(--ty, 0) - 80px)) scale(0.4);
+        }
+      }
+
+      .confetti {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+
+      .confetti-piece {
+        position: absolute;
+        width: 16px;
+        height: 24px;
+        border-radius: 6px;
+        opacity: 0;
+        animation: pop 1.2s ease-out forwards;
+      }
+
+      @keyframes pop {
+        0% {
+          transform: translateY(0) scale(0.6) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(220px) scale(0.6) rotate(320deg);
+          opacity: 0;
+        }
+      }
+
+      .celebration {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: #ffffffdd;
+        flex-direction: column;
+        gap: 24px;
+        text-align: center;
+        z-index: 3;
+      }
+
+      .celebration.active {
+        display: flex;
+      }
+
+      .celebration button {
+        background: var(--success);
+        color: #12531b;
+        border: none;
+        border-radius: 999px;
+        padding: 12px 30px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 8px 0 #4aad4a;
+      }
+
+      .celebration-text {
+        margin: 0;
+        font-size: clamp(1.1rem, 4vw, 1.4rem);
+        max-width: 320px;
+        color: #4f2a80;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+
+      .celebration button:focus-visible {
+        outline: 4px solid var(--focus);
+        outline-offset: 3px;
+      }
+
+      .celebration button:active {
+        transform: translateY(3px);
+        box-shadow: 0 4px 0 #4aad4a;
+      }
+
+      .dance {
+        font-size: clamp(4rem, 20vw, 7rem);
+        animation: dance 0.6s infinite ease-in-out;
+      }
+
+      @keyframes dance {
+        0% {
+          transform: translateY(0) rotate(-8deg) scale(1.05);
+        }
+        50% {
+          transform: translateY(-16px) rotate(8deg) scale(1.12);
+        }
+        100% {
+          transform: translateY(0) rotate(-8deg) scale(1.05);
+        }
+      }
+
+      @media (max-width: 600px) {
+        .game-shell {
+          padding: 14px;
+          border-radius: 22px;
+        }
+
+        .header {
+          flex-direction: column;
+          gap: 10px;
+          align-items: center;
+          text-align: center;
+        }
+
+        .header-left {
+          align-items: center;
+        }
+
+        .item-btn {
+          padding: 18px 14px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .game-shell {
+          width: min(540px, 100%);
+        }
+
+        .play-area {
+          padding: 18px;
+        }
+
+        .play-area::after {
+          inset: 12px;
+        }
+
+        .item-tray {
+          grid-template-columns: repeat(2, minmax(140px, 1fr));
+          overflow-y: visible;
+        }
+
+        .item-btn {
+          font-size: clamp(2.6rem, 12vw, 3.8rem);
+          min-height: 120px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Main container for the entire game interface -->
+    <div class="game-shell" role="application" aria-label="Mouse cookie adventure game">
+      <!-- Header contains title and quick reset control -->
+      <header class="header">
+        <div class="header-left">
+          <h1 aria-hidden="true">🐭 Cookie Adventure</h1>
+          <div class="level-badge" id="level-badge" aria-live="polite">Level 1 • Cozy Kitchen</div>
+        </div>
+        <button type="button" id="reset-btn" aria-label="Start again">↻ Play Again</button>
+      </header>
+
+      <!-- Central play area holding the mouse character and request bubble -->
+      <section class="play-area">
+        <div class="mouse-area" aria-live="polite">
+          <div class="request-bubble" id="request-bubble">
+            <span class="request-text">
+              <span class="request-emoji" aria-hidden="true">🐭</span>
+              <span class="request-arrow" aria-hidden="true">→</span>
+              <span class="request-emoji" id="request-icon" aria-hidden="true">🍪</span>
+            </span>
+            <div class="combo-trail" id="combo-trail" aria-hidden="true"></div>
+            <span class="sr-only" id="request-accessible">Mouse wants Cookie</span>
+          </div>
+          <div class="level-hint" id="level-hint" aria-live="polite">Tap the treat!</div>
+          <div class="mouse-emoji" id="mouse-emoji" aria-hidden="true">🐭</div>
+        </div>
+        <!-- Level transition banner -->
+        <div class="level-transition" id="level-transition" aria-hidden="true">
+          <div
+            class="level-transition-card"
+            id="level-transition-text"
+            role="status"
+            aria-live="polite"
+          >
+            Ready for the next adventure!
+          </div>
+        </div>
+        <!-- Layered feedback effects -->
+        <div class="success-stars" id="stars-layer" aria-hidden="true"></div>
+        <div class="confetti" id="confetti-layer" aria-hidden="true"></div>
+        <!-- Celebration overlay triggered when the request chain is completed -->
+        <div
+          class="celebration"
+          id="celebration"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mouse celebration"
+          aria-hidden="true"
+        >
+          <div class="dance" aria-hidden="true">🐭🎉</div>
+          <p class="celebration-text" id="celebration-text">Amazing whiskers! You finished every level!</p>
+          <button type="button" id="celebrate-btn" aria-label="Play again">Play again!</button>
+        </div>
+      </section>
+
+      <!-- Item tray with big friendly buttons for each requested object -->
+      <nav class="item-tray" aria-label="Helpful items">
+        <button type="button" class="item-btn" data-item="cookie" aria-label="Cookie">
+          🍪<span class="label">Cookie</span>
+        </button>
+        <button type="button" class="item-btn" data-item="milk" aria-label="Milk">
+          🥛<span class="label">Milk</span>
+        </button>
+        <button type="button" class="item-btn" data-item="straw" aria-label="Straw">
+          🥤<span class="label">Straw</span>
+        </button>
+        <button type="button" class="item-btn" data-item="napkin" aria-label="Napkin">
+          🧻<span class="label">Napkin</span>
+        </button>
+        <button type="button" class="item-btn" data-item="mirror" aria-label="Mirror">
+          🪞<span class="label">Mirror</span>
+        </button>
+        <button type="button" class="item-btn" data-item="crayons" aria-label="Crayons">
+          🖍️<span class="label">Color</span>
+        </button>
+      </nav>
+    </div>
+
+    <script>
+      /* Item definitions shared across levels so we can mix requests later on */
+      const ITEMS = {
+        cookie: { icon: "🍪", label: "Cookie", spin: true },
+        milk: { icon: "🥛", label: "Milk", spin: true },
+        straw: { icon: "🥤", label: "Straw" },
+        napkin: { icon: "🧻", label: "Napkin" },
+        mirror: { icon: "🪞", label: "Mirror" },
+        crayons: { icon: "🖍️", label: "Crayons" },
+      };
+
+      /* Level data with unique backgrounds and request order per adventure */
+      const LEVELS = [
+        {
+          name: "Cozy Kitchen",
+          icon: "🏠",
+          className: "level-kitchen",
+          mode: "tap",
+          hint: "Tap the treat!",
+          requests: [["cookie"], ["milk"], ["straw"]],
+        },
+        {
+          name: "Backyard Picnic",
+          icon: "🌼",
+          className: "level-picnic",
+          mode: "drag",
+          hint: "Drag it to the mouse!",
+          requests: [["napkin"], ["milk"], ["straw"], ["cookie"]],
+        },
+        {
+          name: "Creative Corner",
+          icon: "🎨",
+          className: "level-art",
+          mode: "combo",
+          hint: "Give both treats in order!",
+          requests: [["crayons"], ["mirror"], ["milk", "straw"], ["cookie", "napkin"]],
+        },
+      ];
+
+      // Cache frequently used DOM nodes for better readability
+      const mouseEmoji = document.getElementById("mouse-emoji");
+      const requestBubble = document.getElementById("request-bubble");
+      const requestIcon = document.getElementById("request-icon");
+      const requestAccessible = document.getElementById("request-accessible");
+      const comboTrail = document.getElementById("combo-trail");
+      const playArea = document.querySelector(".play-area");
+      const levelBadge = document.getElementById("level-badge");
+      const levelHint = document.getElementById("level-hint");
+      const levelTransition = document.getElementById("level-transition");
+      const levelTransitionText = document.getElementById("level-transition-text");
+      const celebration = document.getElementById("celebration");
+      const celebrationText = document.getElementById("celebration-text");
+      const starsLayer = document.getElementById("stars-layer");
+      const confettiLayer = document.getElementById("confetti-layer");
+      const resetBtn = document.getElementById("reset-btn");
+      const celebrateBtn = document.getElementById("celebrate-btn");
+      const itemButtons = Array.from(document.querySelectorAll(".item-btn"));
+      const mouseArea = document.querySelector(".mouse-area");
+
+      let currentRequestIndex = 0;
+      let currentStepIndex = 0;
+      let currentLevelIndex = 0;
+      let acceptingInput = true;
+      let audioCtx;
+      let dragState = null;
+
+      /* Simple Web Audio helper for cheerful feedback without external files */
+      function playSuccessChime() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        audioCtx.resume?.();
+        const now = audioCtx.currentTime;
+
+        const notes = [
+          { time: 0, freq: 660 },
+          { time: 0.15, freq: 880 },
+          { time: 0.3, freq: 990 },
+        ];
+
+        notes.forEach(({ time, freq }) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "triangle";
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, now + time);
+          gain.gain.exponentialRampToValueAtTime(0.4, now + time + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + time + 0.25);
+          osc.connect(gain).connect(audioCtx.destination);
+          osc.start(now + time);
+          osc.stop(now + time + 0.4);
+        });
+      }
+
+      /* Draws quick stars bursting up near the mouse for positive feedback */
+      function showStars() {
+        starsLayer.innerHTML = "";
+        const positions = [
+          { x: 40, y: 0 },
+          { x: 0, y: 20 },
+          { x: -40, y: 0 },
+        ];
+        positions.forEach(({ x, y }) => {
+          const star = document.createElement("div");
+          star.className = "star";
+          star.textContent = "⭐";
+          star.style.left = "50%";
+          star.style.top = "50%";
+          star.style.setProperty("--tx", `${x}px`);
+          star.style.setProperty("--ty", `${y}px`);
+          starsLayer.appendChild(star);
+          setTimeout(() => star.remove(), 1000);
+        });
+      }
+
+      /* Spawns confetti bits dropping across the play area for celebration */
+      function launchConfetti() {
+        confettiLayer.innerHTML = "";
+        const colors = ["#ff8f32", "#ffd42d", "#66d9ff", "#ff6cc7", "#98f38f"];
+        const pieces = 36;
+        for (let i = 0; i < pieces; i++) {
+          const piece = document.createElement("div");
+          piece.className = "confetti-piece";
+          piece.style.background = colors[i % colors.length];
+          piece.style.left = `${Math.random() * 100}%`;
+          piece.style.top = `-${Math.random() * 40}px`;
+          confettiLayer.appendChild(piece);
+          setTimeout(() => piece.remove(), 1200);
+        }
+      }
+
+      function getCurrentLevel() {
+        return LEVELS[currentLevelIndex];
+      }
+
+      function isItemAllowedInLevel(level, itemId) {
+        if (!level) return false;
+        return level.requests.some((sequence) => sequence.includes(itemId));
+      }
+
+      function updateAvailableItems(level) {
+        const available = new Set();
+        level.requests.forEach((sequence) => {
+          sequence.forEach((id) => available.add(id));
+        });
+        itemButtons.forEach((btn) => {
+          if (available.has(btn.dataset.item)) {
+            btn.classList.remove("dimmed");
+          } else {
+            btn.classList.add("dimmed");
+          }
+        });
+      }
+
+      function renderLevel() {
+        const level = getCurrentLevel();
+        LEVELS.forEach(({ className }) => playArea.classList.remove(className));
+        playArea.classList.add(level.className);
+        playArea.classList.toggle("drag-mode", level.mode === "drag");
+        playArea.classList.toggle("combo-mode", level.mode === "combo");
+        levelBadge.innerHTML = `${level.icon} Level ${currentLevelIndex + 1} • ${level.name}`;
+        levelBadge.setAttribute(
+          "aria-label",
+          `Level ${currentLevelIndex + 1}, ${level.name}`
+        );
+        if (levelHint) {
+          levelHint.textContent = level.hint;
+          levelHint.setAttribute("aria-label", level.hint);
+        }
+        updateAvailableItems(level);
+      }
+
+      function focusFirstItemForLevel() {
+        const level = getCurrentLevel();
+        const firstButton = itemButtons.find(
+          (btn) => btn.dataset.item === level.requests[0]?.[0]
+        );
+        if (firstButton) {
+          firstButton.focus();
+        }
+      }
+
+      function renderComboTrail(sequence) {
+        if (!comboTrail) return;
+        if (!sequence || sequence.length <= 1) {
+          comboTrail.classList.remove("active");
+          comboTrail.innerHTML = "";
+          return;
+        }
+        comboTrail.classList.add("active");
+        comboTrail.innerHTML = "";
+        sequence.forEach((id, index) => {
+          const iconSpan = document.createElement("span");
+          iconSpan.className = "combo-icon";
+          if (index < currentStepIndex) {
+            iconSpan.classList.add("done");
+          }
+          iconSpan.textContent = ITEMS[id]?.icon ?? "❔";
+          comboTrail.appendChild(iconSpan);
+          if (index < sequence.length - 1) {
+            const plusSpan = document.createElement("span");
+            plusSpan.className = "combo-plus";
+            plusSpan.textContent = "+";
+            comboTrail.appendChild(plusSpan);
+          }
+        });
+      }
+
+      /* Updates the speech bubble with the current item's visual cue */
+      function renderRequest() {
+        const level = getCurrentLevel();
+        if (!level) return;
+        const sequence = level.requests[currentRequestIndex] ?? [];
+        const itemId = sequence[currentStepIndex];
+        const item = ITEMS[itemId];
+        if (!item) return;
+        renderComboTrail(sequence);
+        requestIcon.textContent = item.icon;
+        requestIcon.classList.toggle("wiggle", Boolean(item.spin));
+        const totalSteps = sequence.length;
+        const stepLabel =
+          totalSteps > 1 ? ` (${currentStepIndex + 1} of ${totalSteps})` : "";
+        requestBubble.setAttribute(
+          "aria-label",
+          `Mouse wants ${item.label}${stepLabel}`
+        );
+        requestAccessible.textContent = `Mouse wants ${item.label}${stepLabel}`;
+        highlightCorrectButton(itemId);
+      }
+
+      /* Glows the button the mouse currently wants to hint the player */
+      function highlightCorrectButton(itemId) {
+        itemButtons.forEach((btn) => {
+          if (btn.dataset.item === itemId) {
+            btn.classList.add("highlight");
+          } else {
+            btn.classList.remove("highlight");
+          }
+        });
+      }
+
+      /* Handles giving the mouse an item and moving to the next playful request */
+      function handleItemSelection(itemId) {
+        if (!acceptingInput) return;
+
+        const level = getCurrentLevel();
+        const sequence = level.requests[currentRequestIndex] ?? [];
+        const expectedItemId = sequence[currentStepIndex];
+        if (itemId !== expectedItemId) {
+          mouseEmoji.classList.add("wiggle");
+          setTimeout(() => mouseEmoji.classList.remove("wiggle"), 800);
+          return;
+        }
+
+        acceptingInput = false;
+        playSuccessChime();
+        showStars();
+        launchConfetti();
+
+        mouseEmoji.animate(
+          [
+            { transform: "scale(1)" },
+            { transform: "scale(1.1) rotate(-6deg)" },
+            { transform: "scale(1)" },
+          ],
+          { duration: 500, easing: "ease-out" }
+        );
+
+        setTimeout(() => {
+          currentStepIndex += 1;
+          const finishedSequence = currentStepIndex >= sequence.length;
+          if (finishedSequence) {
+            currentRequestIndex += 1;
+            currentStepIndex = 0;
+            if (currentRequestIndex >= level.requests.length) {
+              advanceLevel();
+            } else {
+              renderRequest();
+              acceptingInput = true;
+            }
+          } else {
+            renderRequest();
+            acceptingInput = true;
+          }
+        }, 600);
+      }
+
+      function beginDrag(btn, event) {
+        const level = getCurrentLevel();
+        if (!level || level.mode !== "drag" || !acceptingInput || dragState) return;
+        if (!isItemAllowedInLevel(level, btn.dataset.item)) {
+          event.preventDefault();
+          mouseEmoji.classList.add("wiggle");
+          setTimeout(() => mouseEmoji.classList.remove("wiggle"), 800);
+          return;
+        }
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        event.preventDefault();
+        dragState = {
+          itemId: btn.dataset.item,
+          pointerId: event.pointerId,
+          captureTarget: btn,
+        };
+        btn.setPointerCapture?.(event.pointerId);
+        document.body.classList.add("dragging");
+        const ghost = document.createElement("div");
+        ghost.className = "drag-ghost";
+        ghost.textContent = ITEMS[dragState.itemId]?.icon ?? "";
+        dragState.ghost = ghost;
+        document.body.appendChild(ghost);
+        updateGhostPosition(event.clientX, event.clientY);
+        window.addEventListener("pointermove", onDragMove);
+        window.addEventListener("pointerup", onDragEnd);
+        window.addEventListener("pointercancel", cancelDrag);
+      }
+
+      function updateGhostPosition(x, y) {
+        if (!dragState?.ghost) return;
+        dragState.ghost.style.left = `${x}px`;
+        dragState.ghost.style.top = `${y}px`;
+      }
+
+      function onDragMove(event) {
+        if (!dragState || event.pointerId !== dragState.pointerId) return;
+        updateGhostPosition(event.clientX, event.clientY);
+      }
+
+      function onDragEnd(event) {
+        if (!dragState || event.pointerId !== dragState.pointerId) return;
+        updateGhostPosition(event.clientX, event.clientY);
+        const { itemId } = dragState;
+        const droppedOnMouse = isPointInsideMouse(event.clientX, event.clientY);
+        cleanupDrag();
+        if (!acceptingInput) {
+          return;
+        }
+        if (droppedOnMouse) {
+          handleItemSelection(itemId);
+        } else {
+          mouseEmoji.classList.add("wiggle");
+          setTimeout(() => mouseEmoji.classList.remove("wiggle"), 800);
+        }
+      }
+
+      function cancelDrag() {
+        if (!dragState) return;
+        cleanupDrag();
+      }
+
+      function cleanupDrag() {
+        if (dragState?.ghost) {
+          dragState.ghost.remove();
+        }
+        if (dragState?.captureTarget?.releasePointerCapture) {
+          try {
+            dragState.captureTarget.releasePointerCapture(dragState.pointerId);
+          } catch (error) {
+            /* Ignore if pointer already released */
+          }
+        }
+        window.removeEventListener("pointermove", onDragMove);
+        window.removeEventListener("pointerup", onDragEnd);
+        window.removeEventListener("pointercancel", cancelDrag);
+        document.body.classList.remove("dragging");
+        dragState = null;
+      }
+
+      function isPointInsideMouse(x, y) {
+        if (!mouseArea) return false;
+        const rect = mouseArea.getBoundingClientRect();
+        const padding = 20;
+        return (
+          x >= rect.left - padding &&
+          x <= rect.right + padding &&
+          y >= rect.top - padding &&
+          y <= rect.bottom + padding
+        );
+      }
+
+      function advanceLevel() {
+        const isFinalLevel = currentLevelIndex >= LEVELS.length - 1;
+        if (isFinalLevel) {
+          celebrate();
+          return;
+        }
+
+        cleanupDrag();
+
+        const nextLevel = LEVELS[currentLevelIndex + 1];
+        levelTransitionText.textContent = `Next: Level ${
+          currentLevelIndex + 2
+        } ${nextLevel.icon} ${nextLevel.name} - ${nextLevel.hint}`;
+        levelTransition.classList.add("active");
+        levelTransition.setAttribute("aria-hidden", "false");
+
+        setTimeout(() => {
+          levelTransition.classList.remove("active");
+          levelTransition.setAttribute("aria-hidden", "true");
+          currentLevelIndex += 1;
+          currentRequestIndex = 0;
+          currentStepIndex = 0;
+          renderLevel();
+          renderRequest();
+          acceptingInput = true;
+          focusFirstItemForLevel();
+        }, 1500);
+      }
+
+      /* Shows final celebration overlay with dancing mouse and replay button */
+      function celebrate() {
+        acceptingInput = false;
+        cleanupDrag();
+        celebration.classList.add("active");
+        celebration.setAttribute("aria-hidden", "false");
+        celebrationText.textContent = `Amazing whiskers! You finished ${LEVELS.length} adventures!`;
+        celebration.querySelector("button").focus();
+        setTimeout(() => launchConfetti(), 100);
+      }
+
+      /* Resets the request loop to the beginning */
+      function resetGame() {
+        celebration.classList.remove("active");
+        celebration.setAttribute("aria-hidden", "true");
+        levelTransition.classList.remove("active");
+        levelTransition.setAttribute("aria-hidden", "true");
+        cleanupDrag();
+        currentLevelIndex = 0;
+        currentRequestIndex = 0;
+        currentStepIndex = 0;
+        acceptingInput = true;
+        renderLevel();
+        renderRequest();
+        focusFirstItemForLevel();
+      }
+
+      /* Setup button listeners for pointer and keyboard activation */
+      itemButtons.forEach((btn) => {
+        btn.addEventListener("pointerdown", (event) => {
+          if (getCurrentLevel().mode === "drag") {
+            beginDrag(btn, event);
+          }
+        });
+        btn.addEventListener("click", (event) => {
+          const level = getCurrentLevel();
+          if (!isItemAllowedInLevel(level, btn.dataset.item)) {
+            event.preventDefault();
+            mouseEmoji.classList.add("wiggle");
+            setTimeout(() => mouseEmoji.classList.remove("wiggle"), 800);
+            return;
+          }
+          if (level.mode === "drag") {
+            event.preventDefault();
+            return;
+          }
+          handleItemSelection(btn.dataset.item);
+        });
+        btn.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            const level = getCurrentLevel();
+            if (!isItemAllowedInLevel(level, btn.dataset.item)) {
+              mouseEmoji.classList.add("wiggle");
+              setTimeout(() => mouseEmoji.classList.remove("wiggle"), 800);
+              return;
+            }
+            handleItemSelection(btn.dataset.item);
+          }
+        });
+      });
+
+      resetBtn.addEventListener("click", resetGame);
+      celebrateBtn.addEventListener("click", resetGame);
+      celebrateBtn.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          resetGame();
+        }
+      });
+
+      // Initialize the first mouse request on load
+      renderLevel();
+      renderRequest();
+    </script>
+  </body>
+</html>
